@@ -1,0 +1,74 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128" role="img" aria-labelledby="title">
+  <title id="title">rs-music</title>
+  <desc>Two mint green notes over a curved five-line staff framed by a gear.</desc>
+  <defs>
+    <linearGradient id="tile" x1="19" y1="10" x2="109" y2="118" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#223834"/>
+      <stop offset="1" stop-color="#101714"/>
+    </linearGradient>
+    <linearGradient id="staff" x1="20" x2="108" y1="64" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#72B79C" stop-opacity="0"/>
+      <stop offset=".22" stop-color="#72B79C" stop-opacity=".45"/>
+      <stop offset=".78" stop-color="#72B79C" stop-opacity=".45"/>
+      <stop offset="1" stop-color="#72B79C" stop-opacity="0"/>
+    </linearGradient>
+    <clipPath id="inside-gear">
+      <circle cx="64" cy="64" r="39"/>
+    </clipPath>
+    <linearGradient id="notes" x1="91" y1="31" x2="35" y2="99" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B0F0D5"/>
+      <stop offset=".53" stop-color="#89DDB8"/>
+      <stop offset="1" stop-color="#54AE89"/>
+    </linearGradient>
+  </defs>
+  <rect x="4" y="4" width="120" height="120" rx="29" fill="url(#tile)"/>
+  <rect x="5" y="5" width="118" height="118" rx="28" fill="none" stroke="#39584F" stroke-width="2"/>
+  <path fill="#182822" stroke="#527E6F" stroke-opacity=".78" stroke-width="2.4" stroke-linejoin="round" d="
+    M58.76 21.32
+    L60.58 15.12 67.42 15.12 69.24 21.32
+    A43 43 0 0 1 80.8 24.42
+    L85.48 19.96 91.4 23.38 89.88 29.66
+    A43 43 0 0 1 98.34 38.12
+    L104.62 36.6 108.04 42.52 103.58 47.2
+    A43 43 0 0 1 106.68 58.76
+    L112.88 60.58 112.88 67.42 106.68 69.24
+    A43 43 0 0 1 103.58 80.8
+    L108.04 85.48 104.62 91.4 98.34 89.88
+    A43 43 0 0 1 89.88 98.34
+    L91.4 104.62 85.48 108.04 80.8 103.58
+    A43 43 0 0 1 69.24 106.68
+    L67.42 112.88 60.58 112.88 58.76 106.68
+    A43 43 0 0 1 47.2 103.58
+    L42.52 108.04 36.6 104.62 38.12 98.34
+    A43 43 0 0 1 29.66 89.88
+    L23.38 91.4 19.96 85.48 24.42 80.8
+    A43 43 0 0 1 21.32 69.24
+    L15.12 67.42 15.12 60.58 21.32 58.76
+    A43 43 0 0 1 24.42 47.2
+    L19.96 42.52 23.38 36.6 29.66 38.12
+    A43 43 0 0 1 38.12 29.66
+    L36.6 23.38 42.52 19.96 47.2 24.42
+    A43 43 0 0 1 58.76 21.32
+    Z"/>
+  <path clip-path="url(#inside-gear)" fill="none" stroke="url(#staff)" stroke-width="1.7" d="
+    M20 51Q61 50 108 26 M20 60Q61 59 108 35 M20 69Q61 68 108 44
+    M20 78Q61 77 108 53 M20 87Q61 86 108 62"/>
+  <path fill="url(#notes)" d="
+    M49 53
+    Q49 50 52 49
+    L94 35
+    Q98 34 98 38
+    V70
+    C98 77 91 84 82 85
+    C75 86 70 83 70 78
+    C70 71 77 66 85 65
+    Q87 65 89 66
+    V46
+    L58 56
+    V83
+    C58 91 51 97 42 98
+    C35 99 30 96 30 91
+    C30 84 37 79 45 78
+    Q47 78 49 79
+    Z"/>
+</svg>
