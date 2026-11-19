@@ -19,7 +19,7 @@ impl Action {
             Self::Play => Message::Play,
             Self::Search => Message::SearchOnline,
             Self::AddToQueue => Message::AddToQueue,
-            Self::RemoveFromQueue => Message::Remove,
+            Self::RemoveFromQueue => Message::RemoveFromQueue,
             Self::RemoveFromLibrary => Message::RemoveFromLibrary,
         }
     }
@@ -78,10 +78,19 @@ impl<'a> TrackRow<'a> {
                     |ui| {
                         let mut picked = None;
                         for &(action, enabled) in actions {
-                            let mut response = ui.add_enabled(
-                                enabled,
-                                egui::Button::new(language.text(action.message())).truncate(),
-                            );
+                            let label = language.text(action.message());
+                            let button = match action {
+                                Action::AddToQueue if enabled => egui::Button::new(
+                                    RichText::new(label).color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(32, 104, 83)),
+                                Action::RemoveFromQueue => egui::Button::new(
+                                    RichText::new(label).color(egui::Color32::WHITE),
+                                )
+                                .fill(egui::Color32::from_rgb(141, 62, 49)),
+                                _ => egui::Button::new(label),
+                            };
+                            let mut response = ui.add_enabled(enabled, button.truncate());
                             if let Action::Play = action
                                 && let Some(reason) = self.play_unavailable
                             {

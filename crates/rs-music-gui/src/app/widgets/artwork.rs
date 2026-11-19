@@ -1,8 +1,12 @@
 use super::super::ACCENT;
 use eframe::egui::{self, Color32, Pos2, Rect, Shape, Stroke, vec2};
 
-pub(in crate::app) fn show(ui: &mut egui::Ui, texture: Option<&egui::TextureHandle>, edge: f32) {
-    let (rect, _) = ui.allocate_exact_size(vec2(edge, edge), egui::Sense::hover());
+pub(in crate::app) fn show(
+    ui: &mut egui::Ui,
+    texture: Option<&egui::TextureHandle>,
+    edge: f32,
+) -> egui::Response {
+    let (rect, response) = ui.allocate_exact_size(vec2(edge, edge), egui::Sense::hover());
     if let Some(texture) = texture {
         let size = texture.size_vec2();
         let shorter = size.x.min(size.y);
@@ -17,6 +21,7 @@ pub(in crate::app) fn show(ui: &mut egui::Ui, texture: Option<&egui::TextureHand
     } else if ui.is_rect_visible(rect) {
         placeholder(ui.painter(), rect);
     }
+    response
 }
 
 fn placeholder(painter: &egui::Painter, rect: Rect) {

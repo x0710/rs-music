@@ -10,6 +10,8 @@ mod cover;
 pub(crate) mod media;
 mod now_playing;
 mod pages;
+mod shortcuts;
+mod subtitle_window;
 mod tasks;
 mod widgets;
 
@@ -50,6 +52,7 @@ impl Page {
 pub struct MusicApp {
     page: Page,
     subtitle_return: Page,
+    subtitle_window_open: bool,
     query: String,
     tracks: Vec<PathBuf>,
     queue: Vec<QueueTrack>,
@@ -153,6 +156,7 @@ impl MusicApp {
         Self {
             page: Page::Library,
             subtitle_return: Page::Library,
+            subtitle_window_open: false,
             query: String::new(),
             tracks: state.tracks,
             queue: state.queue,
@@ -540,6 +544,9 @@ impl MusicApp {
             ctx.request_repaint_after(std::time::Duration::from_millis(100));
         }
 
+        if shortcuts::take_playback_toggle(ctx) {
+            self.toggle_playback(ctx);
+        }
         self.now_playing.update(ctx);
         egui::TopBottomPanel::bottom("player")
             .frame(egui::Frame::new().fill(SURFACE).inner_margin(16))
@@ -555,6 +562,9 @@ impl MusicApp {
                 Page::About => pages::about::show(self.language(), ui),
                 Page::Lyrics => pages::lyrics::show(self, ui),
             });
+        if self.subtitle_window_open {
+            self.subtitle_window_open = subtitle_window::show(self, ctx);
+        }
         self.save_changes();
     }
 }

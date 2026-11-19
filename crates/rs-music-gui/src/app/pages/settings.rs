@@ -85,6 +85,21 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
         .show(ui, |ui| {
             ui.set_max_width(660.0);
             section(ui, language.text(Message::Interface), |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(language.text(Message::Zoom));
+                    if ui.button("−").clicked() {
+                        egui::gui_zoom::zoom_out(ui.ctx());
+                    }
+                    if ui
+                        .button(format!("{:.0}%", ui.ctx().zoom_factor() * 100.0))
+                        .clicked()
+                    {
+                        ui.ctx().set_zoom_factor(1.0);
+                    }
+                    if ui.button("+").clicked() {
+                        egui::gui_zoom::zoom_in(ui.ctx());
+                    }
+                });
                 let before = app.language_preference;
                 ui.horizontal_wrapped(|ui| {
                     ui.label(language.text(Message::Language));

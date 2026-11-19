@@ -135,7 +135,7 @@ messages! {
     ManageSources => "Sources", "音源管理";
     NoImportedSources => "No imported sources", "暂无导入的音源";
     AutoSwitchSource => "Automatically switch sources", "自动换源";
-    DeleteSource => "Delete selected source", "删除所选音源";
+    DeleteSource => "Delete", "删除";
     ActiveSource => "Active", "使用中";
     ActiveCatalog => "Search catalog in use", "用于搜索";
     AutoSwitchedSource => "Switched source automatically", "已自动换源";
@@ -162,6 +162,7 @@ messages! {
     LoadingAudio => "Loading audio…", "正在加载音频…";
     MissingPlaybackId => "This result has no platform track ID", "这首歌缺少平台曲目 ID";
     NoCompatiblePlaybackSource => "No compatible playback source for this result", "这首歌暂无可用的播放音源";
+    Zoom => "Interface zoom", "界面缩放";
     Subtitles => "Subtitles", "字幕";
     SubtitleMode => "Subtitle mode", "字幕模式";
     LoadingLyrics => "Loading lyrics…", "正在加载歌词…";
@@ -205,7 +206,7 @@ messages! {
     Play => "Play", "播放";
     Pause => "Pause", "暂停";
     AddToQueue => "+ Queue", "加入队列";
-    Remove => "Remove", "移除";
+    RemoveFromQueue => "− Queue", "移出队列";
     PlaybackMode => "Playback mode", "播放模式";
     Sequential => "In order", "顺序播放";
     RepeatAll => "Repeat queue", "列表循环";

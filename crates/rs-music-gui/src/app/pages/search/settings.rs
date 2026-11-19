@@ -11,39 +11,6 @@ pub(in crate::app) fn show_source_settings(app: &mut MusicApp, ui: &mut egui::Ui
     let hall = &mut app.hall;
     let before = hall.selection();
 
-    ui.horizontal_wrapped(|ui| {
-        ui.label(language.text(Message::Source));
-        let mut selected = None;
-        let mut built_in = false;
-        let name = before
-            .source
-            .and_then(|index| hall.saved.get(index))
-            .map_or_else(|| hall.source.name(), |source| source.name.as_str());
-        egui::ComboBox::from_id_salt("saved_music_sources")
-            .selected_text(name)
-            .show_ui(ui, |ui| {
-                if ui.button("iTunes").clicked() {
-                    built_in = true;
-                    ui.close();
-                }
-                for (index, source) in hall.saved.iter().enumerate() {
-                    let kind = if source.script { "LX" } else { "JSON" };
-                    if ui.button(format!("{} ({kind})", source.name)).clicked() {
-                        selected = Some(index);
-                        ui.close();
-                    }
-                }
-            });
-        if built_in {
-            hall.importing = None;
-            hall.select(Source::ITunes);
-            hall.search_first_page(ui.ctx());
-        }
-        if let Some(index) = selected {
-            hall.load_saved(index, false, ui.ctx());
-        }
-    });
-    ui.add_space(8.0);
     let mut changed = ui
         .checkbox(
             &mut hall.auto_switch_source,
@@ -76,36 +43,53 @@ pub(in crate::app) fn show_source_settings(app: &mut MusicApp, ui: &mut egui::Ui
         }
     });
 
+    ui.add_space(8.0);
+    ui.label(language.text(Message::Source));
+    if ui.radio(before.source.is_none(), "iTunes").clicked() {
+        hall.importing = None;
+        hall.select(Source::ITunes);
+        hall.search_first_page(ui.ctx());
+    }
     if hall.saved.is_empty() {
         ui.label(language.text(Message::NoImportedSources));
-    } else {
-        for (index, source) in hall.saved.iter().enumerate() {
-            let kind = if source.script { "LX" } else { "JSON" };
-            ui.horizontal_wrapped(|ui| {
-                ui.selectable_value(
-                    &mut hall.managed_source,
-                    Some(index),
+    }
+    let mut selected = None;
+    let mut deleted = None;
+    for (index, source) in hall.saved.iter().enumerate() {
+        let kind = if source.script { "LX" } else { "JSON" };
+        ui.horizontal_wrapped(|ui| {
+            if ui
+                .radio(
+                    before.source == Some(index),
                     format!("{} ({kind})", source.name),
-                );
-                if hall.source_index == Some(index) {
-                    ui.label(language.text(Message::ActiveSource));
-                }
-                if hall.catalog_index == Some(index) {
-                    ui.label(language.text(Message::ActiveCatalog));
-                }
-            });
-        }
-        if ui
-            .add_enabled(
-                hall.managed_source.is_some() && hall.importing.is_none(),
-                egui::Button::new(language.text(Message::DeleteSource)),
-            )
-            .clicked()
-            && let Some(index) = hall.managed_source.take()
-        {
-            hall.delete_saved(index, ui.ctx());
-            changed = true;
-        }
+                )
+                .clicked()
+            {
+                selected = Some(index);
+            }
+            if hall.source_index == Some(index) {
+                ui.label(language.text(Message::ActiveSource));
+            }
+            if hall.catalog_index == Some(index) {
+                ui.label(language.text(Message::ActiveCatalog));
+            }
+            if ui
+                .add_enabled(
+                    hall.importing.is_none(),
+                    egui::Button::new(language.text(Message::DeleteSource)),
+                )
+                .clicked()
+            {
+                deleted = Some(index);
+            }
+        });
+    }
+    if let Some(index) = selected {
+        hall.load_saved(index, false, ui.ctx());
+    }
+    if let Some(index) = deleted {
+        hall.delete_saved(index, ui.ctx());
+        changed = true;
     }
 
     if matches!(hall.source, Source::Lx(_)) {

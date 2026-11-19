@@ -89,6 +89,54 @@ fn saved_default_survives_failed_initialization_and_can_be_replaced() {
 }
 
 #[test]
+fn source_list_switches_directly_between_saved_and_builtin_sources() {
+    let ctx = egui::Context::default();
+    let state = rs_music_storage::State {
+        sources: vec![script("Example", "kg", "return undefined;")],
+        source_selection: Some(SourceSelection::default()),
+        ..Default::default()
+    };
+    let mut app = MusicApp::from_state(&ctx, state, None, None);
+    let click = |app: &mut MusicApp, label: &str| {
+        let mut frame = |events| {
+            ctx.run(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| show_source_settings(app, ui));
+                },
+            )
+        };
+        let output = frame(vec![]);
+        let pos = output
+            .shapes
+            .iter()
+            .find_map(|shape| match &shape.shape {
+                egui::Shape::Text(text) if text.galley.job.text == label => {
+                    Some(text.galley.rect.translate(text.pos.to_vec2()).center())
+                }
+                _ => None,
+            })
+            .expect("source is visible without opening a menu");
+        let button = |pressed| egui::Event::PointerButton {
+            pos,
+            pressed,
+            button: egui::PointerButton::Primary,
+            modifiers: egui::Modifiers::NONE,
+        };
+        frame(vec![egui::Event::PointerMoved(pos), button(true)]);
+        frame(vec![button(false)]);
+    };
+    click(&mut app, "Example (LX)");
+    assert_eq!(app.hall.selection().source, Some(0));
+    click(&mut app, "iTunes");
+    assert_eq!(app.hall.selection().source, None);
+    assert!(app.hall.importing.is_none());
+}
+
+#[test]
 fn enlarged_search_field_leaves_room_for_controls_in_a_narrow_panel() {
     let ctx = egui::Context::default();
     let mut hall = Hall::new(Vec::new(), Some(SourceSelection::default()), true, &ctx);

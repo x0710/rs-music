@@ -43,6 +43,7 @@ fn native_options() -> eframe::NativeOptions {
     let x11 = std::env::var("RS_MUSIC_WINDOW_BACKEND").as_deref() == Ok("x11");
     eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
+            .with_transparent(true)
             .with_inner_size([1040.0, 680.0])
             .with_min_inner_size([760.0, 480.0]),
         #[cfg(target_os = "linux")]

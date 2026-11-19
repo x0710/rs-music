@@ -78,12 +78,13 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                 .show(ui, |ui| {
                     ui.vertical_centered(|ui| match loaded {
                         Lyrics::Plain(text) => {
-                            ui.label(text);
+                            ui.label(egui::RichText::new(text).size(24.0));
                         }
                         Lyrics::Timed(lines) => {
                             for (index, line) in lines.iter().enumerate() {
                                 let current = active == Some(index);
-                                let mut text = egui::RichText::new(line.text.as_ref()).size(17.0);
+                                let mut text = egui::RichText::new(line.text.as_ref())
+                                    .size(if current { 32.0 } else { 24.0 });
                                 if current {
                                     text = text.color(ACCENT).strong();
                                 }

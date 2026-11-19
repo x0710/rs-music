@@ -65,10 +65,13 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
             let mut selected = None;
             for entry in rows {
                 let mut actions = vec![(Action::Play, true)];
-                if in_queue {
-                    actions.push((Action::RemoveFromQueue, true));
+                let queue_action = if in_queue || app.queue.contains(&entry) {
+                    Action::RemoveFromQueue
                 } else {
-                    actions.push((Action::AddToQueue, !app.queue.contains(&entry)));
+                    Action::AddToQueue
+                };
+                actions.push((queue_action, true));
+                if !in_queue {
                     actions.push((Action::RemoveFromLibrary, true));
                 }
                 let row = TrackRow::new(&entry, &app.tracks, app.current.as_ref() == Some(&entry));

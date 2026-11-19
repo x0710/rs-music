@@ -34,7 +34,7 @@ The player bar shows playback and buffering progress separately. It displays a b
 
 ### Lyrics
 
-The player bar shows the cover and the current timed lyric beside the song title. Choose **Subtitles** to see the cover and full lyrics. Timed lyrics highlight and scroll with playback. When seeking is available, click a timed line to jump to it.
+The player bar shows the cover and the current timed lyric beside the song title. Click the cover to view the full lyrics in large type. Choose **Subtitles** for a transparent, always-on-top window with two alternating rows. The upcoming lyric stays in its row as its karaoke sweep begins. Adjust interface zoom under **Settings → Interface**, or click the percentage to reset it. Timed lyrics highlight and scroll with playback. When seeking is available, click a timed line to jump to it.
 
 - For local music, place a same-name UTF-8 `.lrc` file beside the audio file. For example, `Song.flac` uses `Song.lrc`.
 - For NetEase tracks, lyrics are fetched by track ID. For other online platforms, the app tries to match the song title and artist to a NetEase recording.

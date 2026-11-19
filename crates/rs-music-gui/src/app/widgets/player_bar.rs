@@ -13,7 +13,12 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
     let track = app.playback_title();
     ui.horizontal(|ui| {
         if app.current.is_some() {
-            artwork::show(ui, app.now_playing.artwork(), 48.0);
+            let cover = artwork::show(ui, app.now_playing.artwork(), 48.0)
+                .interact(egui::Sense::click())
+                .on_hover_text(language.text(Message::SubtitleMode));
+            if cover.clicked() && app.page != Page::Lyrics {
+                app.toggle_subtitles();
+            }
         }
         let lyric = app
             .audio
@@ -114,10 +119,16 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
         }
         if app.now_playing.has_track()
             && ui
-                .selectable_label(app.page == Page::Lyrics, language.text(Message::Subtitles))
+                .selectable_label(app.subtitle_window_open, language.text(Message::Subtitles))
                 .clicked()
         {
-            app.toggle_subtitles();
+            if app.subtitle_window_open {
+                ui.ctx().send_viewport_cmd_to(
+                    super::super::subtitle_window::id(),
+                    egui::ViewportCommand::Focus,
+                );
+            }
+            app.subtitle_window_open = true;
             ui.ctx().request_repaint();
         }
         ui.label(language.text(Message::Volume));
