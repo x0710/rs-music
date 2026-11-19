@@ -1,4 +1,5 @@
-use super::super::cover;
+mod covers;
+mod queue_import;
 use super::super::tasks::{Task, finished, spawn};
 use super::super::widgets::{
     artwork, pagination,
@@ -6,10 +7,13 @@ use super::super::widgets::{
 };
 use super::super::{MUTED, Message, MusicApp, SURFACE};
 use crate::i18n::Language;
+use covers::{Cover, playlist_texture};
 use eframe::egui;
+pub(in crate::app) use queue_import::poll_queue_imports;
+use queue_import::{QueueImport, show_queue_import};
 use rs_music_core::{
     DiscoveryData, DiscoveryPlatform, Playlist, PlaylistPage, PlaylistTracks, Track, Url,
-    error_details, public_error,
+    public_error,
 };
 use rs_music_storage::{OnlineTrack, QueueTrack};
 use std::{
@@ -161,18 +165,6 @@ struct PlaylistView {
     page: usize,
     tracks: Load<PlaylistTracks>,
 }
-
-enum QueueImport {
-    Pending(Task<Vec<Track>>),
-    Complete(Result<usize, String>),
-}
-
-enum Cover {
-    Pending(Task<DiscoveryData<egui::ColorImage>>),
-    Ready(DiscoveryData<egui::TextureHandle>),
-    Unavailable(Instant),
-}
-
 #[derive(Default)]
 struct PlatformPage {
     feeds: Option<Feeds>,
@@ -186,48 +178,6 @@ pub(in crate::app) struct Discovery {
     pages: HashMap<DiscoveryPlatform, PlatformPage>,
     queue_imports: HashMap<(DiscoveryPlatform, u64), QueueImport>,
 }
-
-pub(in crate::app) fn poll_queue_imports(app: &mut MusicApp, ctx: &egui::Context) -> bool {
-    let mut finished_imports = Vec::new();
-    let mut pending = false;
-    for (&key, state) in &app.discovery.queue_imports {
-        if let QueueImport::Pending(task) = state {
-            if let Some(result) = finished(task) {
-                finished_imports.push((key, result));
-            } else {
-                pending = true;
-            }
-        }
-    }
-    let changed = !finished_imports.is_empty();
-    for ((platform, id), result) in finished_imports {
-        let result = result.map(|tracks| {
-            let entries = tracks
-                .into_iter()
-                .map(|track| {
-                    OnlineTrack {
-                        platform: platform.code().into(),
-                        track,
-                        source: None,
-                    }
-                    .into()
-                })
-                .collect();
-            app.enqueue_batch(entries)
-        });
-        if let Err(error) = &result {
-            tracing::warn!(platform = platform.code(), playlist_id = id, %error, "Could not add playlist to queue");
-        }
-        app.discovery
-            .queue_imports
-            .insert((platform, id), QueueImport::Complete(result));
-    }
-    if pending {
-        ctx.request_repaint_after(Duration::from_millis(100));
-    }
-    changed
-}
-
 #[cfg(target_os = "linux")]
 impl Discovery {
     pub(in crate::app) fn clear_textures(&mut self) {
@@ -417,50 +367,6 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
         app.apply_track_action(action, entry, ui.ctx());
     }
 }
-
-fn show_queue_import(
-    imports: &mut HashMap<(DiscoveryPlatform, u64), QueueImport>,
-    platform: DiscoveryPlatform,
-    id: u64,
-    language: Language,
-    ui: &mut egui::Ui,
-) {
-    let key = (platform, id);
-    let pending = matches!(imports.get(&key), Some(QueueImport::Pending(_)));
-    if ui
-        .add_enabled(
-            !pending,
-            egui::Button::new(language.text(Message::QueuePlaylist)),
-        )
-        .clicked()
-    {
-        imports.insert(
-            key,
-            QueueImport::Pending(spawn(ui.ctx(), move || {
-                platform
-                    .cached_all_playlist_tracks(id)
-                    .map_err(public_error)
-            })),
-        );
-    }
-    match imports.get(&key) {
-        Some(QueueImport::Pending(_)) => {
-            ui.spinner();
-        }
-        Some(QueueImport::Complete(Ok(count))) => {
-            ui.colored_label(MUTED, language.playlist_queued(*count));
-        }
-        Some(QueueImport::Complete(Err(error))) => {
-            ui.colored_label(
-                ui.visuals().error_fg_color,
-                language.text(Message::QueuePlaylistFailed),
-            )
-            .on_hover_text(error);
-        }
-        None => {}
-    }
-}
-
 fn loaded<'a, T>(load: &'a Load<T>, language: Language, ui: &mut egui::Ui) -> Option<&'a T> {
     match load {
         Load::Pending(_) => {
@@ -640,70 +546,6 @@ fn show_playlist_header(
         });
     });
 }
-
-fn playlist_texture<'a>(
-    platform: DiscoveryPlatform,
-    playlist: &Playlist,
-    covers: &'a mut HashMap<Url, Cover>,
-    ctx: &egui::Context,
-) -> Option<&'a egui::TextureHandle> {
-    let url = playlist.cover_url.as_ref()?;
-    let cover = covers
-        .entry(url.clone())
-        .or_insert_with(|| start_cover(platform, url.clone(), ctx));
-    let reload = match cover {
-        Cover::Ready(data) => expired(data.valid_until, ctx),
-        Cover::Unavailable(retry) => expired(*retry, ctx),
-        Cover::Pending(_) => false,
-    };
-    if reload {
-        *cover = start_cover(platform, url.clone(), ctx);
-    }
-    if let Cover::Pending(task) = cover {
-        if let Some(result) = finished(task) {
-            *cover = match result {
-                Ok(data) => Cover::Ready(DiscoveryData {
-                    value: ctx.load_texture(
-                        format!("playlist-cover-{}-{}", platform.code(), playlist.id),
-                        data.value,
-                        egui::TextureOptions::LINEAR,
-                    ),
-                    valid_until: data.valid_until,
-                }),
-                Err(_) => Cover::Unavailable(Instant::now() + Duration::from_secs(60)),
-            };
-        } else {
-            ctx.request_repaint_after(Duration::from_millis(100));
-        }
-    }
-    match cover {
-        Cover::Ready(data) => Some(&data.value),
-        _ => None,
-    }
-}
-
-fn start_cover(platform: DiscoveryPlatform, url: Url, ctx: &egui::Context) -> Cover {
-    Cover::Pending(spawn(ctx, move || load_cover(platform, url)))
-}
-
-fn load_cover(
-    platform: DiscoveryPlatform,
-    url: Url,
-) -> Result<DiscoveryData<egui::ColorImage>, String> {
-    let host = url.host_str().unwrap_or("unknown").to_owned();
-    let data = platform.cached_cover(url, false).map_err(public_error)?;
-    let size = data.value.len();
-    let value = cover::decode(&data.value, 512).map_err(|error| {
-        let error = error_details(error.as_ref());
-        tracing::warn!(platform = platform.code(), %host, bytes = size, %error, "Could not decode playlist cover");
-        error
-    })?;
-    Ok(DiscoveryData {
-        value,
-        valid_until: data.valid_until,
-    })
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;

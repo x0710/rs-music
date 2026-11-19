@@ -92,6 +92,8 @@ RUST_LOG=warn,rs_music_gui=debug,rs_music_core=debug cargo run 2>rs-music.log
 
 ## Development
 
+See the [module and maintenance guide (Chinese)](docs/architecture.md) for a source map, the online playback flow, and snapshot compatibility.
+
 - `crates/rs-music-core` handles platform catalogs, LX scripts, audio requests, and lyric parsing.
 - `crates/rs-music-gui` handles the native window, pages, playback, and lyric synchronization.
 - `crates/rs-music-storage` handles settings, search history, audio caching, and saving fully downloaded tracks.

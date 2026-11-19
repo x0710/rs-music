@@ -92,6 +92,8 @@ RUST_LOG=warn,rs_music_gui=debug,rs_music_core=debug cargo run 2>rs-music.log
 
 ## 开发
 
+[模块与维护指南](docs/architecture.md) 包含按功能查找代码的索引、在线播放流程和配置兼容性说明。
+
 - `crates/rs-music-core` 负责平台目录、LX 脚本、音频请求与歌词解析。
 - `crates/rs-music-gui` 负责原生窗口、页面、播放与歌词同步。
 - `crates/rs-music-storage` 负责配置、搜索历史、音频缓存与歌曲、歌词的本地保存。

@@ -178,3 +178,11 @@ mod tests {
         );
     }
 }
+
+pub(crate) fn diagnostic_message(message: &str) -> String {
+    sanitize(message.lines().next().unwrap_or_default())
+        .chars()
+        .filter(|ch| !ch.is_control())
+        .take(300)
+        .collect()
+}
