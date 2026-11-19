@@ -1,6 +1,6 @@
 use crate::{
     app::{
-        MUTED, Message, MusicApp,
+        Message, MusicApp,
         tasks::{Task, finished, spawn},
     },
     i18n::Language,
@@ -85,7 +85,10 @@ pub(super) fn show_queue_import(
             ui.spinner();
         }
         Some(QueueImport::Complete(Ok(count))) => {
-            ui.colored_label(MUTED, language.playlist_queued(*count));
+            ui.colored_label(
+                ui.visuals().weak_text_color(),
+                language.playlist_queued(*count),
+            );
         }
         Some(QueueImport::Complete(Err(error))) => {
             ui.colored_label(

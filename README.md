@@ -24,7 +24,7 @@ On Linux, media keys and MPRIS clients can control playback in the window or the
 
 | Page | Features |
 | --- | --- |
-| Library | Import files, scan folders recursively, or drag and drop music. Filter by file name, play a track, or add it to the queue. |
+| Library | Import files, scan folders recursively, or drag and drop music. Filter by file name. Double-click a track to queue and play it. Click Play to listen without changing the queue. |
 | Queue | Manage local and online tracks in one queue. Playback modes are available in Settings. |
 | Music hall | Browse charts and playlists from NetEase, QQ Music, Kugou, and Kuwo. Open a playlist to add all its tracks to the queue or visit the original playlist. |
 | Music search | Search by song or artist and press Enter to submit. Choose a platform and quality, or reuse recent searches above the search box. |
@@ -34,13 +34,15 @@ The player bar shows playback and buffering progress separately. It displays a b
 
 ### Lyrics
 
-The player bar shows the cover and the current timed lyric beside the song title. Click the cover to view the full lyrics in large type. Choose **Subtitles** for a transparent, always-on-top window with two alternating rows. The upcoming lyric stays in its row as its karaoke sweep begins. Adjust interface zoom under **Settings → Interface**, or click the percentage to reset it. Timed lyrics highlight and scroll with playback. When seeking is available, click a timed line to jump to it.
+The player bar shows the cover and the current timed lyric beside the song title. Click the cover to view the full lyrics in large type. Choose **Subtitles** for a transparent, always-on-top window with two alternating rows. The upcoming lyric stays in its row as its karaoke sweep begins. Drag the subtitle window with the left mouse button. Under **Settings → Interface**, choose light, dark, or system appearance and adjust zoom, or click the percentage to reset it. Timed lyrics highlight and scroll with playback. When seeking is available, click a timed line to jump to it.
 
 - For local music, place a same-name UTF-8 `.lrc` file beside the audio file. For example, `Song.flac` uses `Song.lrc`.
 - For NetEase tracks, lyrics are fetched by track ID. For other online platforms, the app tries to match the song title and artist to a NetEase recording.
 - Online tracks use their platform artwork when available, with a NetEase lookup for missing artwork. Local tracks support same-name `.jpg`, `.jpeg`, or `.png` files and embedded JPEG or PNG covers. The player generates default artwork when a cover is unavailable.
 
 ### Online sources
+
+In Settings → Source management, paste a direct HTTP(S) link to an LX script, LX export, or JSON source and choose **Import from URL**. The player saves the source contents locally for future sessions.
 
 Music search uses iTunes by default and can open matching store pages. To play inside the app, go to **Settings → Sources → Import source…** and load an LX script or a JSON configuration that provides playback URLs.
 

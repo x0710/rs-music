@@ -1,6 +1,12 @@
 use super::Hall;
 use crate::{
-    app::{Message, MusicApp, Page, widgets::pagination},
+    app::{
+        Message, MusicApp, Page,
+        widgets::{
+            pagination,
+            track_row::{Action, interactive_row},
+        },
+    },
     i18n::Language,
 };
 use eframe::egui;
@@ -214,44 +220,46 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
     {
         hall.search_page(page, ui.ctx());
     }
-    if let Some(track) = picked {
-        app.play(app.hall.online_track(track).into(), ui.ctx());
+    if let Some((track, action)) = picked {
+        app.apply_track_action(action, app.hall.online_track(track).into(), ui.ctx());
     }
     app.dirty |= before != app.hall.selection();
 }
 
-fn results(hall: &Hall, language: Language, ui: &mut egui::Ui) -> Option<Track> {
+fn results(hall: &Hall, language: Language, ui: &mut egui::Ui) -> Option<(Track, Action)> {
     let mut picked = None;
     egui::ScrollArea::vertical()
         .id_salt((&hall.platform, &hall.submitted_query, hall.page))
         .max_height((ui.available_height() - 36.0).max(24.0))
         .show(ui, |ui| {
             for track in &hall.tracks {
-                ui.horizontal_wrapped(|ui| {
-                    let playable = hall.can_play_search_result(track);
-                    let reason = if playable {
-                        Message::LoadingAudio
-                    } else if track.id.is_none() && !hall.platform.is_empty() {
-                        Message::MissingPlaybackId
-                    } else {
-                        Message::NoCompatiblePlaybackSource
-                    };
-                    if ui
-                        .add_enabled(
-                            playable && hall.download.is_none(),
-                            egui::Button::new(language.text(Message::Play)),
-                        )
-                        .on_disabled_hover_text(language.text(reason))
-                        .clicked()
-                    {
-                        picked = Some(track.clone());
-                    }
-                    if !playable && let Some(url) = &track.store_url {
-                        ui.hyperlink_to(language.text(Message::ViewOnITunes), url.as_str());
-                    }
-                    ui.strong(&track.title);
-                    ui.label(&track.artist);
+                let playable = hall.can_play_search_result(track);
+                let enabled = playable && hall.download.is_none();
+                let action = interactive_row(ui, enabled, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        let reason = if playable {
+                            Message::LoadingAudio
+                        } else if track.id.is_none() && !hall.platform.is_empty() {
+                            Message::MissingPlaybackId
+                        } else {
+                            Message::NoCompatiblePlaybackSource
+                        };
+                        let play = ui
+                            .add_enabled(enabled, egui::Button::new(language.text(Message::Play)))
+                            .on_disabled_hover_text(language.text(reason))
+                            .clicked();
+                        if !playable && let Some(url) = &track.store_url {
+                            ui.hyperlink_to(language.text(Message::ViewOnITunes), url.as_str());
+                        }
+                        ui.strong(&track.title);
+                        ui.label(&track.artist);
+                        play.then_some(Action::Play)
+                    })
+                    .inner
                 });
+                if let Some(action) = action {
+                    picked = Some((track.clone(), action));
+                }
                 ui.separator();
             }
         });

@@ -2,12 +2,15 @@ use crate::{
     AudioStream, LxSource, Result, SEARCH_PAGE_SIZE, SearchPage, Track,
     audio_stream::open_audio,
     diagnostics::ErrorContext,
-    http::{client, https_url, read_json},
+    http::{client, https_url, lx_client, read_json, read_limited},
     platform_search::PlatformSearch,
     report_failure,
 };
 use serde::Deserialize;
 use std::io::{self, Read};
+
+const SCRIPT_LIMIT: u64 = 2 * 1024 * 1024;
+const CATALOG_LIMIT: u64 = 64 * 1024;
 
 /// 在线音源。内置平台提供搜索目录，LX 脚本按平台和音质解析播放地址。
 #[derive(Clone)]
@@ -67,7 +70,7 @@ impl Source {
                 let name = name.to_ascii_lowercase();
                 name.ends_with(".js") || name.ends_with(".lx.json")
             });
-        let limit = if script { 2 * 1024 * 1024 } else { 65536 };
+        let limit = if script { SCRIPT_LIMIT } else { CATALOG_LIMIT };
         let mut data = String::new();
         std::fs::File::open(path)
             .map_err(|error| {
@@ -88,6 +91,20 @@ impl Source {
             return Err(io::Error::other(format!("Source exceeds {limit} bytes")).into());
         }
         Ok((script, data))
+    }
+
+    /// 下载 HTTP(S) 音源原文。共享链接可能没有扩展名，因此根据内容识别 LX 脚本、导出包和 JSON 目录。
+    pub fn download_document(address: &str) -> Result<(bool, String)> {
+        let url = crate::Url::parse(address.trim())?;
+        if !matches!(url.scheme(), "http" | "https")
+            || url.host_str().is_none()
+            || !url.username().is_empty()
+            || url.password().is_some()
+        {
+            return Err("Expected an HTTP(S) source URL without embedded credentials".into());
+        }
+        let response = lx_client()?.get(url).send()?;
+        classify_download(String::from_utf8(read_limited(response, SCRIPT_LIMIT)?)?)
     }
 
     /// 从已读取或持久化的文本恢复音源。传入 [`Self::read_document`] 返回的标志；
@@ -333,5 +350,54 @@ impl Source {
                     .collect())
             }
         }
+    }
+}
+
+fn classify_download(contents: String) -> Result<(bool, String)> {
+    let text = contents.trim_start_matches('\u{feff}').trim_start();
+    if text.is_empty() || text.starts_with('<') {
+        return Err("Expected source contents. Use a direct link to the JS or JSON file".into());
+    }
+    let script = if text.starts_with('{') {
+        let document: serde_json::Value = serde_json::from_str(text)?;
+        document
+            .get("script")
+            .is_some_and(serde_json::Value::is_string)
+    } else {
+        true
+    };
+    if !script && contents.len() as u64 > CATALOG_LIMIT {
+        return Err(format!("Source exceeds {CATALOG_LIMIT} bytes").into());
+    }
+    Ok((script, contents))
+}
+
+#[cfg(test)]
+mod import_tests {
+    use super::*;
+
+    #[test]
+    fn classifies_source_contents_without_filename_and_preserves_original_text() {
+        for (contents, script) in [
+            ("\u{feff}  /** @name Demo */", true),
+            (r#"{"name":"Test","script":"gz_example"}"#, true),
+            (
+                r#"{"name":"Catalog","search_url":"https://example.org"}"#,
+                false,
+            ),
+        ] {
+            assert_eq!(
+                classify_download(contents.to_owned()).unwrap(),
+                (script, contents.to_owned())
+            );
+        }
+        assert!(classify_download("<html>File viewer</html>".into()).is_err());
+        assert!(
+            classify_download(format!(
+                r#"{{"name":"{}"}}"#,
+                "a".repeat(CATALOG_LIMIT as usize)
+            ))
+            .is_err()
+        );
     }
 }

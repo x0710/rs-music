@@ -1,5 +1,5 @@
 use super::super::widgets::track_row::{Action, TrackRow};
-use super::super::{MUTED, Message, MusicApp, Page, title};
+use super::super::{Message, MusicApp, Page, title};
 use eframe::egui::{self, RichText};
 use rs_music_storage::QueueTrack;
 
@@ -57,7 +57,7 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
             Page::Library if app.tracks.is_empty() => language.text(Message::EmptyLibrary),
             Page::Library => language.text(Message::NoResults),
         };
-        ui.colored_label(MUTED, message);
+        ui.colored_label(ui.visuals().weak_text_color(), message);
     }
 
     let action = egui::ScrollArea::vertical()

@@ -11,5 +11,7 @@ pub use cache_cleanup::clear_recent_cache;
 use file_error::path_error;
 pub use queue::{OnlineTrack, QueueTrack};
 pub use sources::{SavedSource, SourceSelection};
-pub use state::{CloseAction, DownloadSettings, LanguagePreference, PlaybackMode, State};
+pub use state::{
+    CloseAction, DownloadSettings, LanguagePreference, PlaybackMode, State, ThemePreference,
+};
 pub use store::Store;

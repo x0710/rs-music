@@ -1,23 +1,17 @@
 use super::super::tasks::{Task, finished, spawn};
-use super::super::{Message, MusicApp, PlaybackMode, SURFACE};
+use super::super::{Message, MusicApp, widgets::playback_mode};
 use super::search;
 use crate::i18n::{LANGUAGE_OPTIONS, Language, preference_label};
 use eframe::egui;
 use rs_music_storage::CloseAction;
 use std::time::Duration;
 
-const CACHE_RANGES: [(Message, Option<Duration>); 6] = [
-    (Message::CacheFiveMinutes, Some(Duration::from_secs(5 * 60))),
-    (Message::CacheTenMinutes, Some(Duration::from_secs(10 * 60))),
-    (
-        Message::CacheThirtyMinutes,
-        Some(Duration::from_secs(30 * 60)),
-    ),
-    (Message::CacheOneHour, Some(Duration::from_secs(60 * 60))),
-    (
-        Message::CacheOneDay,
-        Some(Duration::from_secs(24 * 60 * 60)),
-    ),
+const CACHE_RANGES: [(Message, Option<u64>); 6] = [
+    (Message::CacheFiveMinutes, Some(5)),
+    (Message::CacheTenMinutes, Some(10)),
+    (Message::CacheThirtyMinutes, Some(30)),
+    (Message::CacheOneHour, Some(60)),
+    (Message::CacheOneDay, Some(1440)),
     (Message::CacheAllTime, None),
 ];
 
@@ -29,6 +23,20 @@ pub(in crate::app) struct CacheCleanup {
 }
 
 impl CacheCleanup {
+    pub(in crate::app) fn from_minutes(minutes: Option<u64>) -> Self {
+        Self {
+            range: CACHE_RANGES
+                .iter()
+                .position(|(_, value)| *value == minutes)
+                .unwrap_or_default(),
+            ..Self::default()
+        }
+    }
+
+    pub(in crate::app) fn minutes(&self) -> Option<u64> {
+        CACHE_RANGES[self.range].1
+    }
+
     fn show(&mut self, ui: &mut egui::Ui, language: Language) {
         if let Some(result) = self.pending.as_ref().and_then(finished) {
             self.pending = None;
@@ -47,7 +55,9 @@ impl CacheCleanup {
                         }
                     });
                 if ui.button(language.text(Message::ClearCache)).clicked() {
-                    let range = CACHE_RANGES[self.range].1;
+                    let range = self
+                        .minutes()
+                        .map(|minutes| Duration::from_secs(minutes * 60));
                     self.result = None;
                     self.pending = Some(spawn(ui.ctx(), move || {
                         rs_music_storage::clear_recent_cache(range)
@@ -100,6 +110,9 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                         egui::gui_zoom::zoom_in(ui.ctx());
                     }
                 });
+                if super::super::theme::selector(ui, language, &mut app.theme) {
+                    app.dirty = true;
+                }
                 let before = app.language_preference;
                 ui.horizontal_wrapped(|ui| {
                     ui.label(language.text(Message::Language));
@@ -173,27 +186,10 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                 app.dirty |= before != app.close_action;
             });
             section(ui, language.text(Message::PlaybackSettings), |ui| {
-                let before = app.playback_mode;
                 ui.horizontal_wrapped(|ui| {
                     ui.label(language.text(Message::PlaybackMode));
-                    egui::ComboBox::from_id_salt("playback_mode")
-                        .selected_text(language.text(mode_message(before)))
-                        .show_ui(ui, |ui| {
-                            for mode in [
-                                PlaybackMode::Sequential,
-                                PlaybackMode::RepeatAll,
-                                PlaybackMode::RepeatOne,
-                                PlaybackMode::Shuffle,
-                            ] {
-                                ui.selectable_value(
-                                    &mut app.playback_mode,
-                                    mode,
-                                    language.text(mode_message(mode)),
-                                );
-                            }
-                        });
+                    app.dirty |= playback_mode::show(ui, language, &mut app.playback_mode);
                 });
-                app.dirty |= before != app.playback_mode;
             });
             section(ui, language.text(Message::Downloads), |ui| {
                 let before = app.downloads.clone();
@@ -246,7 +242,9 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                 app.dirty |= before != app.downloads;
             });
             section(ui, language.text(Message::Cache), |ui| {
+                let before = app.cache_cleanup.minutes();
                 app.cache_cleanup.show(ui, language);
+                app.dirty |= before != app.cache_cleanup.minutes();
             });
             section(ui, language.text(Message::ManageSources), |ui| {
                 search::show_source_settings(app, ui);
@@ -260,7 +258,7 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
 
 fn section(ui: &mut egui::Ui, title: &str, contents: impl FnOnce(&mut egui::Ui)) {
     egui::Frame::new()
-        .fill(SURFACE)
+        .fill(ui.visuals().window_fill)
         .corner_radius(8)
         .inner_margin(16)
         .show(ui, |ui| {
@@ -270,15 +268,6 @@ fn section(ui: &mut egui::Ui, title: &str, contents: impl FnOnce(&mut egui::Ui))
             contents(ui);
         });
     ui.add_space(12.0);
-}
-
-fn mode_message(mode: PlaybackMode) -> Message {
-    match mode {
-        PlaybackMode::Sequential => Message::Sequential,
-        PlaybackMode::RepeatAll => Message::RepeatAll,
-        PlaybackMode::RepeatOne => Message::RepeatOne,
-        PlaybackMode::Shuffle => Message::Shuffle,
-    }
 }
 
 fn close_message(action: CloseAction) -> Message {

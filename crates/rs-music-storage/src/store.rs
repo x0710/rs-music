@@ -107,12 +107,18 @@ mod tests {
             _lock: File::create(directory.path().join("state.lock")).unwrap(),
         };
         let mut old = serde_json::to_value(State::default()).unwrap();
+        old.as_object_mut().unwrap().remove("zoom_factor");
+        old.as_object_mut().unwrap().remove("cache_cleanup_minutes");
+        old.as_object_mut().unwrap().remove("theme");
         old.as_object_mut().unwrap().remove("downloads");
         old.as_object_mut().unwrap().remove("close_action");
         old.as_object_mut().unwrap().remove("source_successes");
         old["queue"] = serde_json::json!([1, 0]);
         old["current"] = serde_json::json!(0);
         let mut state: State = serde_json::from_value(old).unwrap();
+        assert_eq!(state.cache_cleanup_minutes, Some(5));
+        assert_eq!(state.zoom_factor, 1.0);
+        assert_eq!(state.theme, crate::ThemePreference::System);
         assert_eq!(state.close_action, CloseAction::HideToTray);
         assert!(state.source_successes.is_empty());
         assert!(
@@ -134,6 +140,8 @@ mod tests {
         });
         state.queue.insert(1, entry.clone());
         state.current = Some(entry.clone());
+        state.zoom_factor = 1.4;
+        state.cache_cleanup_minutes = None;
         state.close_action = CloseAction::Exit;
         state.downloads.audio = false;
         state.downloads.directory = Some(directory.path().join("Music"));
@@ -143,6 +151,8 @@ mod tests {
             serde_json::from_reader(File::open(store.path).unwrap()).unwrap();
         assert!(saved.state.queue == [QueueTrack::Local(1), entry.clone(), QueueTrack::Local(0)]);
         assert!(saved.state.current == Some(entry));
+        assert_eq!(saved.state.zoom_factor, 1.4);
+        assert_eq!(saved.state.cache_cleanup_minutes, None);
         assert_eq!(saved.state.close_action, CloseAction::Exit);
         assert!(saved.state.downloads == state.downloads);
         assert_eq!(saved.state.source_successes, state.source_successes);

@@ -1,4 +1,4 @@
-use super::super::{ACCENT, MUTED, Message, MusicApp, now_playing::active_line, widgets::artwork};
+use super::super::{Message, MusicApp, now_playing::active_line, widgets::artwork};
 use eframe::egui;
 use rs_music_core::lyrics::Lyrics;
 
@@ -45,8 +45,13 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                 ui.add(egui::Label::new(egui::RichText::new(title.as_ref()).heading()).truncate())
                     .on_hover_text(title.as_ref());
                 if !artist.is_empty() {
-                    ui.add(egui::Label::new(egui::RichText::new(artist).color(MUTED)).truncate())
-                        .on_hover_text(artist);
+                    ui.add(
+                        egui::Label::new(
+                            egui::RichText::new(artist).color(ui.visuals().weak_text_color()),
+                        )
+                        .truncate(),
+                    )
+                    .on_hover_text(artist);
                 }
             },
         );
@@ -86,7 +91,7 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                                 let mut text = egui::RichText::new(line.text.as_ref())
                                     .size(if current { 32.0 } else { 24.0 });
                                 if current {
-                                    text = text.color(ACCENT).strong();
+                                    text = text.color(ui.visuals().selection.stroke.color).strong();
                                 }
                                 let mut label = egui::Label::new(text);
                                 if can_seek {

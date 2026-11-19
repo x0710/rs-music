@@ -23,6 +23,7 @@ enum Command {
 #[derive(Default)]
 struct WindowSignal {
     available: AtomicBool,
+    desktop_theme: Mutex<Option<egui::Theme>>,
     context: Mutex<Option<egui::Context>>,
 }
 
@@ -126,6 +127,12 @@ struct Window<'a> {
 
 impl eframe::App for Window<'_> {
     fn raw_input_hook(&mut self, _: &egui::Context, input: &mut egui::RawInput) {
+        input.system_theme = self
+            .signal
+            .desktop_theme
+            .lock()
+            .unwrap()
+            .or(input.system_theme);
         prepare_ime_commits(&mut input.events);
     }
 
@@ -173,6 +180,15 @@ fn hide_on_close(action: CloseAction, tray_available: bool, quitting: bool) -> b
 
 pub(crate) fn run() -> eframe::Result {
     let signal = Arc::new(WindowSignal::default());
+    let desktop = Arc::clone(&signal);
+    std::thread::spawn(move || {
+        if let Err(error) = crate::desktop_theme::watch(|theme| {
+            *desktop.desktop_theme.lock().unwrap() = theme;
+            desktop.repaint();
+        }) {
+            tracing::debug!(%error, "Desktop color scheme unavailable");
+        }
+    });
     let app = Arc::new(Mutex::<Option<MusicApp>>::new(None));
     let (stop, stopped) = mpsc::channel::<()>();
     std::thread::scope(|scope| {

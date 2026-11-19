@@ -85,15 +85,15 @@ impl Language {
 }
 
 macro_rules! messages {
-    ($($key:ident => $en:literal, $zh:literal;)*) => {
+    ($($(#[$attr:meta])* $key:ident => $en:literal, $zh:literal;)*) => {
         #[derive(Clone, Copy)]
-        pub(crate) enum Message { $($key,)* }
+        pub(crate) enum Message { $($(#[$attr])* $key,)* }
 
         impl Language {
             pub(crate) fn text(self, message: Message) -> &'static str {
                 match (self, message) {
-                    $((Self::English, Message::$key) => $en,
-                      (Self::Chinese, Message::$key) => $zh,)*
+                    $($(#[$attr])* (Self::English, Message::$key) => $en,
+                      $(#[$attr])* (Self::Chinese, Message::$key) => $zh,)*
                 }
             }
         }
@@ -115,8 +115,12 @@ messages! {
     SystemFont => "System default", "系统默认";
     CloseAction => "When closing the window", "关闭窗口时";
     HideToTray => "Hide to system tray", "隐藏到托盘";
+    #[cfg(target_os = "linux")]
     RestoreWindow => "Show window", "恢复窗口";
     ExitApplication => "Quit application", "退出应用";
+    Theme => "Appearance", "外观";
+    Light => "Light", "亮色";
+    Dark => "Dark", "暗色";
     System => "Follow system", "跟随系统";
     Hall => "Music hall", "音乐大厅";
     MusicSearch => "Music search", "音乐搜索";
@@ -131,6 +135,8 @@ messages! {
     DiscoveryLoadFailed => "Could not load music", "加载失败";
     LoadingDiscovery => "Loading…", "正在加载…";
     Source => "Source", "音源";
+    SourceUrl => "Source URL (HTTP or HTTPS)", "音源直链（HTTP 或 HTTPS）";
+    ImportFromUrl => "Import from URL", "从 URL 导入";
     ImportSource => "Import source…", "导入音源…";
     ManageSources => "Sources", "音源管理";
     NoImportedSources => "No imported sources", "暂无导入的音源";

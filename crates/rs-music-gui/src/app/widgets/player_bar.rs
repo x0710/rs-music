@@ -1,4 +1,4 @@
-use super::super::{ACCENT, MUTED, Message, MusicApp, Page};
+use super::super::{Message, MusicApp, Page};
 use super::artwork;
 use crate::{
     audio::{ArchiveState, DownloadProgress},
@@ -30,8 +30,11 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                 ui.set_max_width(ui.available_width() * 0.4);
                 ui.add(title).on_hover_text(&track);
             });
-            ui.add(egui::Label::new(RichText::new(lyric).color(ACCENT)).truncate())
-                .on_hover_text(lyric);
+            ui.add(
+                egui::Label::new(RichText::new(lyric).color(ui.visuals().selection.stroke.color))
+                    .truncate(),
+            )
+            .on_hover_text(lyric);
         } else {
             ui.add(title).on_hover_text(track);
         }
@@ -40,8 +43,11 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
         && let Some(source) = &app.hall.fallback_source
     {
         let notice = format!("{} · {source}", language.text(Message::AutoSwitchedSource));
-        ui.add(egui::Label::new(RichText::new(&notice).color(ACCENT)).truncate())
-            .on_hover_text(notice);
+        ui.add(
+            egui::Label::new(RichText::new(&notice).color(ui.visuals().selection.stroke.color))
+                .truncate(),
+        )
+        .on_hover_text(notice);
     }
     if app.audio.sink().is_some() {
         show_progress(app, ui);
@@ -63,11 +69,17 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                             }
                         }
                         Some(ArchiveState::Requested) => {
-                            ui.colored_label(MUTED, language.text(Message::SaveRequested));
+                            ui.colored_label(
+                                ui.visuals().weak_text_color(),
+                                language.text(Message::SaveRequested),
+                            );
                             None
                         }
                         Some(ArchiveState::Skipped) => {
-                            ui.colored_label(MUTED, language.text(Message::SaveSkipped));
+                            ui.colored_label(
+                                ui.visuals().weak_text_color(),
+                                language.text(Message::SaveSkipped),
+                            );
                             None
                         }
                         None => None,
@@ -93,7 +105,7 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
         } else {
             language.text(Message::Play)
         };
-        let can_play = app.hall.download.is_none() && !app.queue.is_empty();
+        let can_play = app.hall.download.is_none() && app.has_playback_selection();
         if ui
             .add_enabled(can_play, egui::Button::new(button))
             .clicked()
@@ -111,25 +123,25 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
             app.play(id, ui.ctx());
         }
 
+        app.dirty |= super::playback_mode::show(ui, language, &mut app.playback_mode);
+
         if app.hall.download.is_some() {
             ui.spinner();
-            ui.colored_label(MUTED, language.text(Message::LoadingAudio));
+            ui.colored_label(
+                ui.visuals().weak_text_color(),
+                language.text(Message::LoadingAudio),
+            );
         } else if app.audio.buffering() {
-            ui.colored_label(MUTED, language.text(Message::Buffering));
+            ui.colored_label(
+                ui.visuals().weak_text_color(),
+                language.text(Message::Buffering),
+            );
         }
-        if app.now_playing.has_track()
-            && ui
-                .selectable_label(app.subtitle_window_open, language.text(Message::Subtitles))
-                .clicked()
-        {
-            if app.subtitle_window_open {
-                ui.ctx().send_viewport_cmd_to(
-                    super::super::subtitle_window::id(),
-                    egui::ViewportCommand::Focus,
-                );
-            }
-            app.subtitle_window_open = true;
-            ui.ctx().request_repaint();
+        if app.now_playing.has_track() || app.subtitle_window_open {
+            ui.toggle_value(
+                &mut app.subtitle_window_open,
+                language.text(Message::Subtitles),
+            );
         }
         ui.label(language.text(Message::Volume));
         let mut volume = app.volume;
@@ -165,7 +177,10 @@ fn show_buffer_progress(progress: DownloadProgress, language: Language, ui: &mut
     } else {
         ui.horizontal(|ui| {
             ui.spinner();
-            ui.colored_label(MUTED, format!("{label} {received}"));
+            ui.colored_label(
+                ui.visuals().weak_text_color(),
+                format!("{label} {received}"),
+            );
         });
     }
 }
@@ -186,9 +201,15 @@ fn show_progress(app: &mut MusicApp, ui: &mut egui::Ui) {
     let current = app.audio.position();
     let duration = app.audio.duration().filter(|duration| !duration.is_zero());
     ui.horizontal(|ui| {
-        ui.colored_label(MUTED, time(app.seek_preview.unwrap_or(current)));
+        ui.colored_label(
+            ui.visuals().weak_text_color(),
+            time(app.seek_preview.unwrap_or(current)),
+        );
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.colored_label(MUTED, duration.map_or_else(|| "--:--".into(), time));
+            ui.colored_label(
+                ui.visuals().weak_text_color(),
+                duration.map_or_else(|| "--:--".into(), time),
+            );
             let width = ui.available_width();
             if let Some(duration) = duration
                 && app.audio.can_seek()
@@ -241,6 +262,47 @@ fn time(duration: Duration) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn subtitles_button_opens_closes_and_reopens_the_window() {
+        let ctx = egui::Context::default();
+        let mut app = MusicApp::from_state(&ctx, Default::default(), None, None);
+        let label = app.language().text(Message::Subtitles);
+        app.now_playing.local("song.wav".into());
+        let frame = |app: &mut MusicApp, events| {
+            ctx.run(
+                egui::RawInput {
+                    events,
+                    ..Default::default()
+                },
+                |ctx| {
+                    egui::CentralPanel::default().show(ctx, |ui| show(app, ui));
+                },
+            )
+        };
+        for open in [true, false, true, false] {
+            let output = frame(&mut app, vec![]);
+            let pos = output
+                .shapes
+                .iter()
+                .find_map(|shape| match &shape.shape {
+                    egui::Shape::Text(text) if text.galley.job.text == label => {
+                        Some(text.galley.rect.translate(text.pos.to_vec2()).center())
+                    }
+                    _ => None,
+                })
+                .expect("subtitle toggle visible");
+            let click = |pressed| egui::Event::PointerButton {
+                pos,
+                button: egui::PointerButton::Primary,
+                pressed,
+                modifiers: egui::Modifiers::NONE,
+            };
+            frame(&mut app, vec![egui::Event::PointerMoved(pos), click(true)]);
+            frame(&mut app, vec![click(false)]);
+            assert_eq!(app.subtitle_window_open, open);
+        }
+    }
 
     #[test]
     fn dragging_playback_progress_seeks_only_on_release() {

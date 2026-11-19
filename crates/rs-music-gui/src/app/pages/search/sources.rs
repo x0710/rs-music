@@ -219,9 +219,11 @@ impl Hall {
     }
 }
 
-pub(super) fn load_document(path: &std::path::Path) -> Result<(Source, SavedSource, bool), String> {
+pub(super) fn load_document(
+    input: Result<(bool, String), Box<dyn std::error::Error>>,
+) -> Result<(Source, SavedSource, bool), String> {
     let result = (|| {
-        let (script, contents) = Source::read_document(path)?;
+        let (script, contents) = input?;
         let source = Source::from_document(script, &contents)?;
         let document = SavedSource {
             name: source.name().to_owned(),

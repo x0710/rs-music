@@ -92,8 +92,8 @@ pub(crate) fn snapshot(app: &mut MusicApp) -> (Properties, Option<i64>) {
         ("Volume", Value::from(f64::from(app.volume) / 100.0)),
         ("CanGoNext", Value::from(app.can_go_next())),
         ("CanGoPrevious", Value::from(app.previous_track().is_some())),
-        ("CanPlay", Value::from(!app.queue.is_empty())),
-        ("CanPause", Value::from(!app.queue.is_empty())),
+        ("CanPlay", Value::from(app.has_playback_selection())),
+        ("CanPause", Value::from(app.has_playback_selection())),
         ("CanSeek", Value::from(can_seek(app))),
     ]);
     (properties, app.seeked.take().map(micros))
@@ -359,7 +359,8 @@ impl Player {
     }
     #[zbus(property)]
     fn can_play(&self) -> bool {
-        self.read(|app| !app.queue.is_empty()).unwrap_or(false)
+        self.read(|app| app.has_playback_selection())
+            .unwrap_or(false)
     }
     #[zbus(property)]
     fn can_pause(&self) -> bool {

@@ -2,6 +2,15 @@ use crate::{QueueTrack, SavedSource, SourceSelection};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::PathBuf};
 
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ThemePreference {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
 #[derive(Clone, Copy, Default, PartialEq, Serialize, Deserialize)]
 pub enum LanguagePreference {
     #[default]
@@ -29,6 +38,14 @@ pub enum CloseAction {
     #[default]
     HideToTray,
     Exit,
+}
+
+fn default_zoom_factor() -> f32 {
+    1.0
+}
+
+fn default_cache_cleanup_minutes() -> Option<u64> {
+    Some(5)
 }
 
 fn default_volume() -> u8 {
@@ -59,6 +76,13 @@ impl Default for DownloadSettings {
 
 #[derive(Serialize, Deserialize)]
 pub struct State {
+    #[serde(default = "default_zoom_factor")]
+    pub zoom_factor: f32,
+    /// 清理时间范围以分钟保存；空值表示全部时间。
+    #[serde(default = "default_cache_cleanup_minutes")]
+    pub cache_cleanup_minutes: Option<u64>,
+    #[serde(default)]
+    pub theme: ThemePreference,
     pub language: LanguagePreference,
     #[serde(default)]
     pub font_family: Option<String>,
@@ -87,6 +111,9 @@ pub struct State {
 impl Default for State {
     fn default() -> Self {
         Self {
+            zoom_factor: default_zoom_factor(),
+            cache_cleanup_minutes: default_cache_cleanup_minutes(),
+            theme: ThemePreference::default(),
             language: LanguagePreference::default(),
             font_family: None,
             close_action: CloseAction::default(),

@@ -1,4 +1,4 @@
-use super::super::{ACCENT, MUTED, Message, SURFACE};
+use super::super::Message;
 use crate::i18n::Language;
 use eframe::egui::{self, RichText};
 
@@ -11,14 +11,19 @@ pub(in crate::app) fn show(language: Language, ui: &mut egui::Ui) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         ui.set_max_width(660.0);
         egui::Frame::new()
-            .fill(SURFACE)
+            .fill(ui.visuals().window_fill)
             .corner_radius(8)
             .inner_margin(20)
             .show(ui, |ui| {
                 ui.set_min_width(ui.available_width());
-                ui.label(RichText::new("rs-music").color(ACCENT).size(30.0).strong());
+                ui.label(
+                    RichText::new("rs-music")
+                        .color(ui.visuals().selection.stroke.color)
+                        .size(30.0)
+                        .strong(),
+                );
                 ui.colored_label(
-                    MUTED,
+                    ui.visuals().weak_text_color(),
                     format!(
                         "{} {}",
                         language.text(Message::Version),
@@ -32,6 +37,7 @@ pub(in crate::app) fn show(language: Language, ui: &mut egui::Ui) {
                     // Official Invertocat from https://brand.github.com/foundations/logo.
                     let icon =
                         egui::Image::new(egui::include_image!("../../../assets/github-mark.svg"))
+                            .tint(ui.visuals().text_color())
                             .max_size(egui::vec2(18.0, 18.0));
                     let button = egui::Button::image_and_text(icon, "GitHub");
                     if ui
@@ -54,7 +60,10 @@ pub(in crate::app) fn show(language: Language, ui: &mut egui::Ui) {
         });
         ui.add_space(12.0);
         ui.horizontal_wrapped(|ui| {
-            ui.colored_label(MUTED, language.text(Message::InspiredBy));
+            ui.colored_label(
+                ui.visuals().weak_text_color(),
+                language.text(Message::InspiredBy),
+            );
             ui.hyperlink_to("LX Music", "https://github.com/lyswhut/lx-music-desktop");
         });
     });

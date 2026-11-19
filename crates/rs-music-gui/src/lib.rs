@@ -1,5 +1,7 @@
 mod app;
 mod audio;
+#[cfg(target_os = "linux")]
+mod desktop_theme;
 mod fonts;
 mod i18n;
 #[cfg(target_os = "linux")]
@@ -16,7 +18,7 @@ pub fn run() -> eframe::Result {
         .with(PortalRequestLog)
         .with(
             tracing_subscriber::fmt::layer()
-                .with_ansi(std::io::stderr().is_terminal())
+                .with_ansi(!cfg!(windows) && std::io::stderr().is_terminal())
                 .with_writer(std::io::stderr),
         )
         .try_init();

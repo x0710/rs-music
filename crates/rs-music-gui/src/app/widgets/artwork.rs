@@ -1,4 +1,3 @@
-use super::super::ACCENT;
 use eframe::egui::{self, Color32, Pos2, Rect, Shape, Stroke, vec2};
 
 pub(in crate::app) fn show(
@@ -25,6 +24,7 @@ pub(in crate::app) fn show(
 }
 
 fn placeholder(painter: &egui::Painter, rect: Rect) {
+    let accent = Color32::from_rgb(137, 221, 184);
     let edge = rect.width();
     let at = |x, y| Pos2::new(rect.left() + edge * x, rect.top() + edge * y);
     painter.rect_filled(rect, 6, Color32::from_rgb(32, 58, 57));
@@ -37,9 +37,9 @@ fn placeholder(painter: &egui::Painter, rect: Rect) {
     painter.add(Shape::ellipse_filled(
         at(0.45, 0.65),
         vec2(edge * 0.10, edge * 0.075),
-        ACCENT,
+        accent,
     ));
-    let stem = Stroke::new(edge * 0.052, ACCENT);
+    let stem = Stroke::new(edge * 0.052, accent);
     painter.line_segment([at(0.52, 0.63), at(0.52, 0.33)], stem);
     painter.line_segment([at(0.52, 0.33), at(0.65, 0.40)], stem);
 }

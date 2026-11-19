@@ -1,9 +1,4 @@
-use eframe::egui::{self, Color32};
-
-const ACCENT: Color32 = Color32::from_rgb(137, 221, 184);
-const SURFACE: Color32 = Color32::from_rgb(26, 30, 35);
-const BACKGROUND: Color32 = Color32::from_rgb(18, 21, 25);
-const MUTED: Color32 = Color32::from_rgb(160, 172, 183);
+use eframe::egui;
 
 mod cover;
 #[cfg(target_os = "linux")]
@@ -13,6 +8,7 @@ mod pages;
 mod shortcuts;
 mod subtitle_window;
 mod tasks;
+mod theme;
 mod widgets;
 
 use crate::{
@@ -68,6 +64,8 @@ pub struct MusicApp {
     playback_mode: PlaybackMode,
     volume: u8,
     playback_error: Option<(Message, String)>,
+    zoom_factor: f32,
+    theme: rs_music_storage::ThemePreference,
     language_preference: LanguagePreference,
     font_family: Option<String>,
     pub(crate) close_action: CloseAction,
@@ -117,10 +115,8 @@ impl MusicApp {
 
     fn configure_context(&self, ctx: &egui::Context) {
         egui_extras::install_image_loaders(ctx);
-        let mut visuals = egui::Visuals::dark();
-        visuals.selection.bg_fill = Color32::from_rgb(42, 81, 68);
-        visuals.selection.stroke.color = ACCENT;
-        ctx.set_visuals(visuals);
+        ctx.set_zoom_factor(self.zoom_factor);
+        theme::configure(ctx, self.theme);
         self.fonts.install(ctx, self.font_family.as_deref());
     }
 
@@ -142,7 +138,10 @@ impl MusicApp {
             QueueTrack::Local(id) => *id < state.tracks.len() && seen.insert(*id),
             QueueTrack::Online(_) => true,
         });
-        state.current = state.current.filter(|entry| state.queue.contains(entry));
+        state.current = state.current.filter(|entry| match entry {
+            QueueTrack::Local(id) => *id < state.tracks.len(),
+            QueueTrack::Online(_) => true,
+        });
         let mut hall = pages::search::Hall::new(
             state.sources,
             state.source_selection,
@@ -172,11 +171,13 @@ impl MusicApp {
             playback_mode: state.playback_mode,
             volume: state.volume.min(100),
             playback_error: None,
+            zoom_factor: state.zoom_factor.clamp(0.2, 5.0),
+            theme: state.theme,
             language_preference: state.language,
             font_family: state.font_family,
             close_action: state.close_action,
             downloads: state.downloads,
-            cache_cleanup: pages::settings::CacheCleanup::default(),
+            cache_cleanup: pages::settings::CacheCleanup::from_minutes(state.cache_cleanup_minutes),
             fonts: SystemFonts::default(),
             system_language: Language::system(),
             store,
@@ -221,6 +222,10 @@ impl MusicApp {
         use widgets::track_row::Action;
         match action {
             Action::Play => self.play(entry, ctx),
+            Action::QueueAndPlay => {
+                self.enqueue(entry.clone());
+                self.play(entry, ctx);
+            }
             Action::AddToQueue => self.enqueue(entry),
             Action::RemoveFromQueue => self.remove_from_queue(&entry),
             Action::RemoveFromLibrary => {
@@ -265,7 +270,6 @@ impl MusicApp {
 
     fn select_track(&mut self, entry: QueueTrack) {
         self.stop_playback();
-        self.enqueue(entry.clone());
         self.dirty |= self.current.as_ref() != Some(&entry);
         self.current = Some(entry);
         self.now_playing.clear();
@@ -304,6 +308,10 @@ impl MusicApp {
         if self.hall.download.is_some() {
             self.pause_on_load = true;
         }
+    }
+
+    fn has_playback_selection(&self) -> bool {
+        self.current.is_some() || !self.queue.is_empty()
     }
 
     fn resume_playback(&mut self, ctx: &egui::Context) {
@@ -489,6 +497,9 @@ impl MusicApp {
         if let Some(store) = &self.store {
             tracing::debug!("Saving application state");
             let state = State {
+                zoom_factor: self.zoom_factor,
+                cache_cleanup_minutes: self.cache_cleanup.minutes(),
+                theme: self.theme,
                 language: self.language_preference,
                 font_family: self.font_family.clone(),
                 close_action: self.close_action,
@@ -529,6 +540,12 @@ impl MusicApp {
         audio_finished || search_changed || queue_changed || self.imports.len() != pending_imports
     }
     pub(crate) fn show(&mut self, ctx: &egui::Context) {
+        // egui 在下一帧应用缩放。只从真实窗口读取，托盘后台使用独立的 Context。
+        let zoom = ctx.zoom_factor();
+        if self.zoom_factor != zoom {
+            self.zoom_factor = zoom;
+            self.dirty = true;
+        }
         self.import(
             ctx,
             ctx.input(|input| {
@@ -549,11 +566,19 @@ impl MusicApp {
         }
         self.now_playing.update(ctx);
         egui::TopBottomPanel::bottom("player")
-            .frame(egui::Frame::new().fill(SURFACE).inner_margin(16))
+            .frame(
+                egui::Frame::new()
+                    .fill(ctx.style().visuals.window_fill)
+                    .inner_margin(16),
+            )
             .show(ctx, |ui| widgets::player_bar::show(self, ui));
         widgets::navigation::show(ctx, self);
         egui::CentralPanel::default()
-            .frame(egui::Frame::new().fill(BACKGROUND).inner_margin(24))
+            .frame(
+                egui::Frame::new()
+                    .fill(ctx.style().visuals.panel_fill)
+                    .inner_margin(24),
+            )
             .show(ctx, |ui| match self.page {
                 Page::Hall => pages::discovery::show(self, ui),
                 Page::Search => pages::search::show(self, ui),
@@ -593,6 +618,27 @@ pub(crate) fn prepare_ime_commits(events: &mut Vec<egui::Event>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn settings_restore_zoom_and_cleanup_range_before_the_first_frame() {
+        let ctx = egui::Context::default();
+        let saved = State {
+            zoom_factor: 1.4,
+            cache_cleanup_minutes: Some(60),
+            ..State::default()
+        };
+        let mut app = MusicApp::from_state(&ctx, saved, None, None);
+        app.configure_context(&ctx);
+        let _ = ctx.run(Default::default(), |ctx| {
+            assert_eq!(ctx.zoom_factor(), 1.4);
+            app.show(ctx);
+        });
+        assert_eq!(app.cache_cleanup.minutes(), Some(60));
+
+        ctx.set_zoom_factor(1.1);
+        let _ = ctx.run(Default::default(), |ctx| app.show(ctx));
+        assert_eq!(app.zoom_factor, 1.1);
+    }
 
     #[cfg(target_os = "linux")]
     #[test]
@@ -690,10 +736,12 @@ mod tests {
         ));
         assert_eq!(app.playback_title(), "New online song");
         assert!(app.current.as_ref() == Some(&online));
-        assert!(matches!(app.previous_track(), Some(QueueTrack::Local(0))));
+        assert!(app.previous_track().is_none());
+        assert!(app.queue == [QueueTrack::Local(0)]);
         app.remove_from_library(0);
         assert!(app.current.as_ref() == Some(&online));
-        assert_eq!(app.queue.len(), 1);
+        assert!(app.queue.is_empty());
+        assert!(app.has_playback_selection());
     }
 }
 

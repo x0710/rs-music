@@ -3,50 +3,94 @@ use eframe::egui::{self, Color32, FontId, Vec2};
 use rs_music_core::lyrics::{Line, Lyrics};
 use std::time::Duration;
 
-pub(super) fn id() -> egui::ViewportId {
+fn id() -> egui::ViewportId {
     egui::ViewportId::from_hash_of("desktop_subtitles")
 }
 
 /// 子窗口只读取当前歌曲和播放时钟，关闭它不会改变主窗口或播放状态。
 pub(super) fn show(app: &MusicApp, ctx: &egui::Context) -> bool {
     let language = app.language();
+    let position = app.audio.position();
+    let lyrics = app.now_playing.lyrics();
+    let status = match lyrics {
+        Some(Err(_)) => Message::LyricsLoadFailed,
+        None if app.now_playing.has_track() => Message::LoadingLyrics,
+        None => Message::NoTrack,
+        _ => Message::NoLyrics,
+    };
+    let status = language.text(status);
+    let loaded = lyrics
+        .and_then(|result| result.as_ref().ok())
+        .and_then(Option::as_ref);
+    let size = match loaded {
+        Some(Lyrics::Timed(lines)) if !lines.is_empty() => {
+            let current = active_line(lines, position).unwrap_or(0);
+            compact_size(
+                ctx,
+                lines[current..]
+                    .iter()
+                    .take(2)
+                    .map(|line| line.text.as_ref()),
+                2,
+            )
+        }
+        Some(Lyrics::Plain(_)) => egui::vec2(400.0, 76.0),
+        _ => compact_size(ctx, [status].into_iter(), 1),
+    };
     let builder = egui::ViewportBuilder::default()
         .with_title(language.text(Message::Subtitles))
         .with_app_id("rs-music-subtitles")
         .with_transparent(true)
         .with_always_on_top()
-        .with_inner_size([760.0, 160.0])
-        .with_min_inner_size([260.0, 90.0]);
+        .with_decorations(false)
+        .with_inner_size(size);
     ctx.show_viewport_immediate(id(), builder, |ctx, _| {
         if ctx.input(|input| input.viewport().close_requested()) {
             return false;
         }
+        // Wayland 的原生拖动需要本次按下事件的序列号，在按下左键时立即发起。
+        if ctx.input(|input| input.pointer.button_pressed(egui::PointerButton::Primary)) {
+            ctx.send_viewport_cmd(egui::ViewportCommand::StartDrag);
+        }
         egui::CentralPanel::default()
-            .frame(egui::Frame::NONE.inner_margin(10))
-            .show(ctx, |ui| {
-                let position = app.audio.position();
-                let text = match app.now_playing.lyrics() {
-                    Some(Ok(Some(Lyrics::Timed(lines)))) if !lines.is_empty() => {
-                        draw_timed(ui, lines, position, app.audio.duration());
-                        return;
-                    }
-                    Some(Ok(Some(Lyrics::Plain(text)))) => {
-                        egui::ScrollArea::vertical().show(ui, |ui| {
-                            draw_text(ui, text);
-                        });
-                        return;
-                    }
-                    Some(Err(_)) => language.text(Message::LyricsLoadFailed),
-                    Some(Ok(_)) => language.text(Message::NoLyrics),
-                    None if app.now_playing.has_track() => language.text(Message::LoadingLyrics),
-                    None => language.text(Message::NoTrack),
-                };
-                draw_text(ui, text);
+            .frame(egui::Frame::NONE.inner_margin(2))
+            .show(ctx, |ui| match loaded {
+                Some(Lyrics::Timed(lines)) if !lines.is_empty() => {
+                    draw_timed(ui, lines, position, app.audio.duration())
+                }
+                Some(Lyrics::Plain(text)) => {
+                    egui::ScrollArea::vertical().show(ui, |ui| draw_text(ui, text));
+                }
+                _ => draw_text(ui, status),
             });
         if app.audio.playing() {
             ctx.request_repaint_after(Duration::from_millis(40));
         }
         true
+    })
+}
+
+const FONT_SIZE: f32 = 26.0;
+
+/// 按可见歌词测量客户区。描边占用两侧留白；双行模式保留固定行高，避免换句时上下跳动。
+fn compact_size<'a>(
+    ctx: &egui::Context,
+    lines: impl Iterator<Item = &'a str>,
+    rows: usize,
+) -> Vec2 {
+    let font = FontId::proportional(FONT_SIZE);
+    ctx.fonts_mut(|fonts| {
+        let mut height = fonts.row_height(&font);
+        let mut width = 0.0_f32;
+        for text in lines {
+            let galley = fonts.layout_no_wrap(text.to_owned(), font.clone(), Color32::WHITE);
+            width = width.max(galley.size().x);
+            height = height.max(galley.size().y);
+        }
+        egui::vec2(
+            (width.ceil() + 8.0).clamp(36.0, 520.0),
+            (height.ceil() + 4.0) * rows as f32 + 4.0,
+        )
     })
 }
 
@@ -62,7 +106,7 @@ fn draw_timed(ui: &mut egui::Ui, lines: &[Line], position: Duration, duration: O
             egui::pos2(area.left(), top),
             egui::vec2(area.width(), height),
         );
-        let size = (height * 0.72).min(64.0);
+        let size = FONT_SIZE;
         let layout = |size| {
             ui.painter().layout_no_wrap(
                 line.text.to_string(),
@@ -104,12 +148,12 @@ fn line_progress(position: Duration, start: Duration, end: Option<Duration>) -> 
 
 fn draw_text(ui: &mut egui::Ui, text: &str) {
     let width = ui.available_width().max(1.0);
-    let font = FontId::proportional((ui.ctx().content_rect().height() * 0.32).clamp(30.0, 64.0));
+    let font = FontId::proportional(FONT_SIZE);
     let painter = ui.painter().clone();
     let galley = painter.layout(text.to_owned(), font, Color32::WHITE, width);
     let height = galley.size().y.max(
         ui.available_height()
-            .min(ui.ctx().content_rect().height() - 20.0),
+            .min(ui.ctx().content_rect().height() - 4.0),
     );
     let (rect, _) = ui.allocate_exact_size(egui::vec2(width, height), egui::Sense::hover());
     paint_lyric(&painter, rect, galley, 0.0);
@@ -145,6 +189,51 @@ fn paint_lyric(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn window_fits_the_visible_pair_and_caps_long_lines() {
+        let ctx = egui::Context::default();
+        let _ = ctx.run(Default::default(), |ctx| {
+            let short = compact_size(ctx, ["A", "B"].into_iter(), 2);
+            let preview = compact_size(ctx, ["A", "The upcoming lyric"].into_iter(), 2);
+            let long = "long lyric ".repeat(32);
+            let capped = compact_size(ctx, [long.as_str(), "B"].into_iter(), 2);
+            assert!(short.x < preview.x && preview.x < capped.x);
+            assert_eq!(capped.x, 520.0);
+            assert_eq!(short.y, preview.y);
+            assert!(compact_size(ctx, ["Loading"].into_iter(), 1).y < short.y);
+        });
+    }
+
+    #[test]
+    fn only_primary_press_starts_a_native_window_drag() {
+        let ctx = egui::Context::default();
+        let app = MusicApp::from_state(&ctx, Default::default(), None, None);
+        let requests_drag = |button| {
+            let output = ctx.run(
+                egui::RawInput {
+                    events: vec![egui::Event::PointerButton {
+                        pos: egui::pos2(40.0, 20.0),
+                        button,
+                        pressed: true,
+                        modifiers: egui::Modifiers::NONE,
+                    }],
+                    ..Default::default()
+                },
+                |ctx| {
+                    show(&app, ctx);
+                },
+            );
+            output.viewport_output.values().any(|viewport| {
+                viewport
+                    .commands
+                    .iter()
+                    .any(|cmd| matches!(cmd, egui::ViewportCommand::StartDrag))
+            })
+        };
+        assert!(!requests_drag(egui::PointerButton::Secondary));
+        assert!(requests_drag(egui::PointerButton::Primary));
+    }
 
     #[test]
     fn preview_becomes_active_in_place_and_seeking_restores_both_rows() {

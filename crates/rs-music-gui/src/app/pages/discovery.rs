@@ -5,7 +5,7 @@ use super::super::widgets::{
     artwork, pagination,
     track_row::{Action, TrackRow},
 };
-use super::super::{MUTED, Message, MusicApp, SURFACE};
+use super::super::{Message, MusicApp};
 use crate::i18n::Language;
 use covers::{Cover, playlist_texture};
 use eframe::egui;
@@ -262,7 +262,7 @@ pub(in crate::app) fn show(app: &mut MusicApp, ui: &mut egui::Ui) {
                     let total = detail.total.max(view.playlist.total.unwrap_or(0));
                     if detail.tracks.len() < total {
                         ui.colored_label(
-                            MUTED,
+                            ui.visuals().weak_text_color(),
                             language.playlist_track_count(detail.tracks.len(), total),
                         );
                     }
@@ -471,7 +471,7 @@ fn show_playlists(
         ui.columns(columns, |columns| {
             for (column, playlist) in columns.iter_mut().zip(row) {
                 egui::Frame::new()
-                    .fill(SURFACE)
+                    .fill(column.visuals().window_fill)
                     .corner_radius(8)
                     .inner_margin(8)
                     .show(column, |ui| {
@@ -500,7 +500,8 @@ fn show_playlists(
                         if !playlist.author.is_empty() {
                             ui.add(
                                 egui::Label::new(
-                                    egui::RichText::new(&playlist.author).color(MUTED),
+                                    egui::RichText::new(&playlist.author)
+                                        .color(ui.visuals().weak_text_color()),
                                 )
                                 .truncate(),
                             )
@@ -530,7 +531,7 @@ fn show_playlist_header(
         ui.vertical(|ui| {
             ui.heading(&playlist.title);
             if !playlist.author.is_empty() {
-                ui.colored_label(MUTED, &playlist.author);
+                ui.colored_label(ui.visuals().weak_text_color(), &playlist.author);
             }
             ui.hyperlink_to(language.text(Message::BrowseOnPlatform), playlist.web_url());
             if let Some(description) = &playlist.description {
@@ -541,7 +542,10 @@ fn show_playlist_header(
                         ui.label(description);
                     });
             } else if matches!(view.tracks, Load::Complete(_)) {
-                ui.colored_label(MUTED, language.text(Message::NoPlaylistDescription));
+                ui.colored_label(
+                    ui.visuals().weak_text_color(),
+                    language.text(Message::NoPlaylistDescription),
+                );
             }
         });
     });
@@ -663,6 +667,7 @@ mod tests {
             .collect();
         for width in [520.0, 840.0] {
             let ctx = egui::Context::default();
+            super::super::super::theme::configure(&ctx, rs_music_storage::ThemePreference::Dark);
             let output = ctx.run(
                 egui::RawInput {
                     screen_rect: Some(egui::Rect::from_min_size(
@@ -694,7 +699,9 @@ mod tests {
                 .shapes
                 .iter()
                 .filter_map(|shape| match &shape.shape {
-                    egui::Shape::Rect(rect) if rect.fill == SURFACE => Some(rect.rect.height()),
+                    egui::Shape::Rect(rect) if rect.fill == ctx.style().visuals.window_fill => {
+                        Some(rect.rect.height())
+                    }
                     _ => None,
                 })
                 .collect();

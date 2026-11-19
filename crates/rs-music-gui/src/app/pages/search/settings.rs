@@ -33,13 +33,36 @@ pub(in crate::app) fn show_source_settings(app: &mut MusicApp, ui: &mut egui::Ui
             {
                 tracing::info!("Source file selected, starting import");
                 hall.error = None;
-                hall.importing = Some(spawn(ui.ctx(), move || load_document(&path)));
+                hall.importing = Some(spawn(ui.ctx(), move || {
+                    load_document(Source::read_document(&path))
+                }));
             } else {
                 tracing::info!("Source file picker returned no file");
             }
         }
         if hall.importing.is_some() {
             ui.spinner();
+        }
+    });
+
+    ui.horizontal_wrapped(|ui| {
+        ui.add(
+            egui::TextEdit::singleline(&mut hall.source_url)
+                .hint_text(language.text(Message::SourceUrl))
+                .desired_width(320.0),
+        );
+        if ui
+            .add_enabled(
+                hall.importing.is_none() && !hall.source_url.trim().is_empty(),
+                egui::Button::new(language.text(Message::ImportFromUrl)),
+            )
+            .clicked()
+        {
+            let address = hall.source_url.clone();
+            hall.error = None;
+            hall.importing = Some(spawn(ui.ctx(), move || {
+                load_document(Source::download_document(&address))
+            }));
         }
     });
 
@@ -171,7 +194,7 @@ fn show_catalog_settings(hall: &mut Hall, language: Language, ui: &mut egui::Ui)
         {
             let platform = hall.platform.clone();
             hall.importing = Some(spawn(ui.ctx(), move || {
-                let result = load_document(&path)?;
+                let result = load_document(Source::read_document(&path))?;
                 if result.0.platform() != Some(&platform) {
                     return Err(format!(
                         "Expected a JSON search catalog with platform: {platform}"
