@@ -54,8 +54,9 @@ pub(in crate::app) fn show(language: Language, ui: &mut egui::Ui) {
                 });
             });
         ui.add_space(16.0);
-        ui.heading(language.text(Message::OpenSourceLicenses));
-        egui::CollapsingHeader::new("GNU General Public License v3").show(ui, |ui| {
+        ui.heading(language.text(Message::ProjectLicense));
+        ui.label(language.text(Message::LicenseSummary));
+        egui::CollapsingHeader::new(language.text(Message::LicenseText)).show(ui, |ui| {
             ui.add(egui::Label::new(RichText::new(GPL).monospace()).wrap());
         });
         ui.add_space(12.0);

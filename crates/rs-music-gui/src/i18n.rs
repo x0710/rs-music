@@ -106,7 +106,9 @@ messages! {
     AboutDescription => "An open-source desktop music player built with Rust and egui.", "使用 Rust 和 egui 开发的开源桌面音乐播放器。";
     Version => "Version", "版本";
     ReportIssue => "Report an issue", "问题反馈";
-    OpenSourceLicenses => "Open-source licenses", "开源许可证";
+    ProjectLicense => "Project license", "项目许可证";
+    LicenseSummary => "You may use, modify, and redistribute rs-music under the terms of the GNU General Public License, version 3 or (at your option) any later version (GPL-3.0-or-later).", "你可以选择按 GNU 通用公共许可证第 3 版或任何后续版本使用、修改和再分发 rs-music（GPL-3.0-or-later）。";
+    LicenseText => "Read the full license", "阅读许可证全文";
     InspiredBy => "Inspired by", "使用体验参考";
     Interface => "Interface", "界面";
     PlaybackSettings => "Playback", "播放";

@@ -107,3 +107,7 @@ cargo build --workspace
 ```
 
 Planned features include custom playlists, media keys, and word-by-word lyrics.
+
+## License
+
+You may use, modify, and redistribute rs-music under the [GNU General Public License, version 3](LICENSE), or, at your option, any later version published by the Free Software Foundation (`GPL-3.0-or-later`). Third-party dependencies and imported music source scripts are subject to their respective licenses.
